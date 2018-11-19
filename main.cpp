@@ -33,9 +33,7 @@ void recursive_add_dirs(vector<std::string> &sources)
         recursive_directory_iterator dir( it), end;
         while (dir != end)
         {
-            //dir->path().exte
-
-            ++dir;
+         ++dir;
         }
     }
 
@@ -55,11 +53,8 @@ vector<path> collect_source(string &path_to_source)
         }
 
         for(auto &dir: sources_cpp)
-        {
-                //cout<<dir<<endl;
-            // Open the File
+        {                
             ifstream in(dir.string());
-            // Check if object is valid
             if(!in)
             {
                 cout << "Cannot open the File : "<<dir<<endl;
@@ -69,14 +64,12 @@ vector<path> collect_source(string &path_to_source)
              // Read the next line from File untill it reaches the end.
              while (getline(in, str))
              {
-
                    size_t pos = str.find("#include");
                    if (pos != std::string::npos)
                        cout << str << endl;
              }
-             //Close The File
-             in.close();
 
+             in.close();
         }
 
         return sources_cpp;
