@@ -14,8 +14,8 @@ public:
     void set_LastHeader(bool l) {last=l;}
     bool get_LastHeader() const {return last;}
 
-    bool is_ExistHeader() const {return exist;}
-    void set_ExistHeader(bool y) {exist = y;}
+    bool is_HeaderExist() const {return exist;}
+    void set_HeaderExist(bool y) {exist = y;}
 
     void set_LeftHeader(Header *h) {left=h;}
     Header* get_LeftHeader() const {return left;}

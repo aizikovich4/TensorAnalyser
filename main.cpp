@@ -8,13 +8,13 @@
 #include<regex>
 #include "includeheader.hpp"
 
+#define LIMIT_INCLUDES 1000
+
 using namespace std;
 using namespace boost::program_options;
 using namespace boost::filesystem;
 
-vector<Header> headers;
-
-int check_exist_dirs(vector<string> &sources)
+int check_exist_dirs(vector<path> &sources)
 {
     for(auto i = 0; i< sources.size(); ++i)
     {
@@ -47,38 +47,39 @@ vector<path> collect_source(string &path_to_source)
     return sources_cpp;
 }
 
-void build_tree(vector<path> cpp_files)
+vector<Header> collect_include(vector<path> cpp_files)
 {
-    std::regex reg("^#include([<\"])(.*[.hpp|.h])([>\"])$");
+    regex reg("^#include([<\"])(.*[.hpp|.h])([>\"])$");
     string str;
     string::size_type pos1,pos2;
     std::smatch match;
+    vector<Header> temp;
 
     for(auto &dir: cpp_files)
     {
-        cout<<"Source: "<< dir << endl;
+        //cout<<"Source: "<< dir << endl;
         std::ifstream in(dir.string());
         if(!in)
         {
-            cout << "Cannot open the File : "<<dir<<endl;
+            cout << "Can't open file : "<<dir<<endl;
             continue;
         }
 
          // Reads line by line until the end
          while (getline(in, str))
          {
-             str.erase(std::remove(str.begin(), str.end(), ' '),str.end()); //delete all whitespaces
+             str.erase(remove(str.begin(), str.end(), ' '),str.end()); //delete all whitespaces
 
-             if(((pos1=str.find("/*")) != std::string::npos) &&
-                ((pos2=str.find("*/")) != std::string::npos) &&
+             if(((pos1=str.find("/*")) != string::npos) &&
+                ((pos2=str.find("*/")) != string::npos) &&
                   pos2-pos1 > 2
                 )
                 str.erase(pos1,pos2-pos1+2);
-             if((pos1=str.find("//")) != std::string::npos)
+             if((pos1=str.find("//")) != string::npos)
                 str.erase(pos1,str.length()-pos1);
 
 
-                   if(str.find("/*") != std::string::npos)
+                   if(str.find("/*") != string::npos)
                      {
                        pos1=in.tellg(); // new reading position in the file
 
@@ -88,37 +89,105 @@ void build_tree(vector<path> cpp_files)
                        in.seekg(pos1);
                      }
 
-                   if(std::regex_match(str, match, reg))
-                     if(match[1].str() == std::string("<") && match[3].str() == std::string(">"))
+                   if(regex_match(str, match, reg))
+                     if(match[1].str() == string("<") && match[3].str() == string(">"))
                        {
-                         cout<<"Global " <<str << "   "<<match[2].str()<< endl;
+                         //cout<<"Global " <<str << "   "<<match[2].str()<< endl;
 
-                         Header *h=new Header(match[2].str());
-                         h->set_GlobalHeader(true);
-                        // sibs.push_back(*h);
-                         delete h;
+                         Header *header=new Header(match[2].str());
+                         header->set_GlobalHeader(true);
+                         temp.push_back(*header);
+                         delete header;
                        }
-                   if(match[1].str() == std::string("\"") && match[3].str() == std::string("\""))
+                   if(match[1].str() == string("\"") && match[3].str() == string("\""))
                      {
-                       cout<<"Local " <<str << "   "<<dir / match[2].str()<< endl;
-                       Header *h=new Header(dir / match[2].str());
-                       if( exists(h->string()))
-                            h->set_ExistHeader(true);
+                       //cout<<"Local " <<str << "   "<<dir / match[2].str()<< endl;
+                       Header *header=new Header(dir / match[2].str());
+                       if( exists(header->string()))
+                            header->set_HeaderExist(true);
                        else
-                            h->set_ExistHeader(false);
-                      // sibs.push_back(*h);
-                       delete h;
+                            header->set_HeaderExist(false);
+                      temp.push_back(*header);
+                       delete header;
                      }
          }
          in.close();
     }
+    return temp;
+}
+
+void create_tree(vector<Header> includes, vector<path> path_headers)
+{
+
+    std::vector<Header> tmpvector;
+     tmpvector.reserve(1024);
+
+     includes.back().set_LastHeader(true);
+
+
+     size_t i=includes.size();
+     for(size_t s=0;s < i; s++)
+       {
+         if( s == LIMIT_INCLUDES )
+           break;
+         path fileForParse;
+
+         if(includes.at(s).is_globalHeader())
+           for(auto& a : path_headers)
+             {
+               exists(a / includes.at(s).filename()) ? includes.at(s).set_HeaderExist(true) : includes.at(s).set_HeaderExist(false);
+               if(includes.at(s).is_HeaderExist())
+                 {
+                   fileForParse=a / includes.at(s).filename();
+                   break;
+                 }
+             }
+
+         else
+         {
+           if(!includes.at(s).is_globalHeader())
+           {
+             exists(includes.at(s).string()) ? includes.at(s).set_HeaderExist(true) : includes.at(s).set_HeaderExist(false);
+             fileForParse=includes.at(s).string();
+           }
+         }
+
+         tmpvector=collect_include(vector<path>{fileForParse});
+
+         if(tmpvector.size())
+           {
+             tmpvector.back().set_LastHeader(true);
+
+             /* copying all elements from tmpvector to headers */
+             size_t  prev_i = i;
+             for(auto& it : tmpvector)
+               {
+                 it.set_ParentHeader(&includes.at(s));
+                 includes.push_back(it);
+                 includes.at(s).set_LeftHeader(&tmpvector[0]);
+
+               }
+
+             includes.at(s).set_LeftHeader(&includes.at(prev_i));
+             i+=tmpvector.size();
+           }
+         tmpvector.clear();
+       }
+     /* pointer to the next element that has element with no last tag */
+     for(size_t j=0; j < i-1; ++j)
+       {
+         if(!includes.at(j).get_LastHeader())
+           includes.at(j).set_NextHeader(&includes.at(j+1));
+       }
+
 }
 
 int main(int argc, char* argv[])
 {
     string source_dir = "";
-    vector<string> dirs_headers{};
+    vector<path> path_headers{};
     vector<path> cpp_files{};
+    vector<Header> cpp_includes{};
 
     try {
         if(argc < 2)
@@ -129,13 +198,13 @@ int main(int argc, char* argv[])
         options_description desc("Allowed options");
         desc.add_options()
         ("help,h", "print usage message")
-        ("input,I",  value(&dirs_headers), "Input directory for headers file")
+        ("input,I",  value(&path_headers), "Input directory for headers file")
         ;
         variables_map vm;
         store(parse_command_line(argc, argv, desc), vm);
         if (vm.count("input"))
         {
-            dirs_headers = vm["input"].as< vector<string> >();
+            path_headers = vm["input"].as< vector<path> >();
         }
 
         //check existing source directory (it's second parameters in argv). If it does't exist - next actions is mindless.
@@ -146,14 +215,21 @@ int main(int argc, char* argv[])
         }
 
         //check existing headers directories - if they doesn't exist - there is no place for search out headers.
-        if(check_exist_dirs(dirs_headers))
+        if(check_exist_dirs(path_headers))
         {
             cout<<"Wrong path to include files"<<endl;
             return -1;
         }
 
         cpp_files = collect_source(source_dir);
-        build_tree(cpp_files);
+        cpp_includes = collect_include(cpp_files);
+            if (cpp_includes.size() == 0 )
+            {
+                cout <<"Includes not detected"<<endl;
+                return -1;
+            }
+
+        create_tree(cpp_includes, path_headers);
 
     }
     catch(exception& e) {
