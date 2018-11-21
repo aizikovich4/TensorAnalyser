@@ -47,22 +47,22 @@ vector<path> collect_source(string &path_to_source)
     return sources_cpp;
 }
 
-vector<Header> collect_include(vector<path> cpp_files)
+vector<Header> collect_include(path cpp_file)
 {
     regex reg("^#include([<\"])(.*[.hpp|.h])([>\"])$");
     string str;
     string::size_type pos1,pos2;
     std::smatch match;
-    vector<Header> temp;
+    vector<Header> temp{};
+    path working_path = cpp_file.parent_path();
 
-    for(auto &dir: cpp_files)
-    {
+
         //cout<<"Source: "<< dir << endl;
-        std::ifstream in(dir.string());
+        std::ifstream in(cpp_file.string());
         if(!in)
         {
-            cout << "Can't open file : "<<dir<<endl;
-            continue;
+            cout << "Can't open file : "<<cpp_file<<endl;
+            return temp;
         }
 
          // Reads line by line until the end
@@ -74,45 +74,42 @@ vector<Header> collect_include(vector<path> cpp_files)
                 ((pos2=str.find("*/")) != string::npos) &&
                   pos2-pos1 > 2
                 )
-                str.erase(pos1,pos2-pos1+2);
+             str.erase(pos1,pos2-pos1+2);
              if((pos1=str.find("//")) != string::npos)
                 str.erase(pos1,str.length()-pos1);
 
 
-                   if(str.find("/*") != string::npos)
-                     {
-                       pos1=in.tellg(); // new reading position in the file
+            if(str.find("/*") != string::npos)
+             {
+               pos1=in.tellg(); // new reading position in the file
 
-                       while(getline(in, str))
-                         if((pos2=str.find("*/")) != string::npos)
-                           continue;
-                       in.seekg(pos1);
-                     }
+               while(getline(in, str))
+                 if((pos2=str.find("*/")) != string::npos)
+                   continue;
+               in.seekg(pos1);
+             }
 
-                   if(regex_match(str, match, reg))
-                     if(match[1].str() == string("<") && match[3].str() == string(">"))
-                       {
-                         //cout<<"Global " <<str << "   "<<match[2].str()<< endl;
-
-                         Header *header=new Header(match[2].str());
-                         header->set_GlobalHeader(true);
-                         temp.push_back(*header);
-                         delete header;
-                       }
-                   if(match[1].str() == string("\"") && match[3].str() == string("\""))
-                     {
-                       //cout<<"Local " <<str << "   "<<dir / match[2].str()<< endl;
-                       Header *header=new Header(dir / match[2].str());
-                       if( exists(header->string()))
-                            header->set_HeaderExist(true);
-                       else
-                            header->set_HeaderExist(false);
-                      temp.push_back(*header);
-                       delete header;
-                     }
+           if(regex_match(str, match, reg))
+             if(match[1].str() == string("<") && match[3].str() == string(">"))
+             {
+               Header *header=new Header(match[2].str());
+               temp.push_back(*header);
+               header->set_GlobalHeader(true);
+               delete header;
+             }
+           if(match[1].str() == string("\"") && match[3].str() == string("\""))
+             {
+               Header *header=new Header(working_path / match[2].str());
+               if( exists(header->string()))
+                    header->set_HeaderExist(true);
+               else
+                    header->set_HeaderExist(false);
+                temp.push_back(*header);
+               delete header;
+             }
          }
          in.close();
-    }
+
     return temp;
 }
 
@@ -152,7 +149,7 @@ void create_tree(vector<Header> includes, vector<path> path_headers)
            }
          }
 
-         tmpvector=collect_include(vector<path>{fileForParse});
+         tmpvector=collect_include(fileForParse);
 
          if(tmpvector.size())
            {
@@ -222,14 +219,29 @@ int main(int argc, char* argv[])
         }
 
         cpp_files = collect_source(source_dir);
-        cpp_includes = collect_include(cpp_files);
+        cout<<"Cpp files"<<endl;
+        for(auto &dir: cpp_files)
+        {
+            cout<<dir.string()<<endl;
+            cpp_includes = collect_include(dir);
+            cout<<"\tCpp includes"<<endl;
+            for(auto &header: cpp_includes)
+            {
+                cout<<"\t"<<header.string()<< (header.is_globalHeader()?" - global": " ") <<endl;
+
+            }
+        }
+return 0;
+
+
+
             if (cpp_includes.size() == 0 )
             {
                 cout <<"Includes not detected"<<endl;
                 return -1;
             }
-
-        create_tree(cpp_includes, path_headers);
+        for(auto &cpp:cpp_includes )
+            create_tree(cpp_includes, path_headers);
 
     }
     catch(exception& e) {
