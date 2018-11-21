@@ -21,7 +21,7 @@ public:
     Header* get_LeftHeader() const {return left;}
 
     bool is_globalHeader() const {return global;}
-    void set_GlobalHeader(bool a) {global = a;}
+    void set_GlobalHeader(bool g) {global = g;}
 
     void set_NextHeader(Header* n) {next = n;}
     Header* get_NextHeader() const {return next;}
