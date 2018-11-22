@@ -5,11 +5,9 @@
 #include <boost/program_options.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
-#include<regex>
+#include <regex>
 #include "headlist.h"
 #include "includeheader.hpp"
-
-#define LIMIT_INCLUDES 1000
 
 using namespace std;
 using namespace boost::program_options;
@@ -138,74 +136,6 @@ vector<Header> collect_include(path cpp_file)
     return temp;
 }
 
-void create_tree(vector<Header> includes, vector<path> path_headers)
-{
-
-    std::vector<Header> tmpvector;
-     tmpvector.reserve(1024);
-
-     includes.back().set_LastHeader(true);
-
-
-     size_t i=includes.size();
-     for(size_t s=0;s < i; s++)
-       {
-         if( s == LIMIT_INCLUDES )
-           break;
-         path fileForParse;
-
-         if(includes.at(s).is_globalHeader())
-           for(auto& a : path_headers)
-             {
-               exists(a / includes.at(s).filename()) ? includes.at(s).set_HeaderExist(true) : includes.at(s).set_HeaderExist(false);
-               if(includes.at(s).is_HeaderExist())
-                 {
-                   fileForParse=a / includes.at(s).filename();
-                   break;
-                 }
-             }
-
-         else
-         {
-           if(!includes.at(s).is_globalHeader())
-           {
-             exists(includes.at(s).string()) ? includes.at(s).set_HeaderExist(true) : includes.at(s).set_HeaderExist(false);
-             fileForParse=includes.at(s).string();
-           }
-         }
-
-         tmpvector=collect_include(fileForParse);
-
-         if(tmpvector.size())
-           {
-             tmpvector.back().set_LastHeader(true);
-
-             /* copying all elements from tmpvector to headers */
-             size_t  prev_i = i;
-             for(auto& it : tmpvector)
-               {
-                 it.set_ParentHeader(&includes.at(s));
-                 includes.push_back(it);
-                 includes.at(s).set_LeftHeader(&tmpvector[0]);
-
-               }
-
-             includes.at(s).set_LeftHeader(&includes.at(prev_i));
-             i+=tmpvector.size();
-           }
-         tmpvector.clear();
-       }
-     /* pointer to the next element that has element with no last tag */
-     for(size_t j=0; j < i-1; ++j)
-       {
-         if(!includes.at(j).get_LastHeader())
-           includes.at(j).set_NextHeader(&includes.at(j+1));
-       }
-
-}
-
-
-
 
 int main(int argc, char* argv[])
 {
@@ -245,6 +175,9 @@ int main(int argc, char* argv[])
             return -1;
         }
 
+
+        //********begin real work*******************************************************//
+
         recursive_directory_iterator dir( source_dir), end;
         //collect all .cpp files
         while (dir != end)
@@ -252,25 +185,21 @@ int main(int argc, char* argv[])
             if (dir->path().extension() == ".cpp" )
             {
                 HeadList headList(dir->path());
-                headList.cpp_includes = collect_include(dir->path());
+                headList.set_Includes(collect_include(dir->path()));
                 headerLists.push_back(headList);
             }
             ++dir;
         }
 
+        //simple output, it's not tree
         for(auto &list: headerLists)
         {
-            cout<<list.work_dir<<endl;
-            for(auto &header: list.cpp_includes)
+            cout<<list.get_Workdir()<<endl;
+            for(auto &header: list.get_Includes())
             {
                 cout<<"\t"<<header.string()<< (header.is_HeaderExist()? " ":  "(!)")<<endl;
             }
         }
-
-        return 0;
-
-        for(auto &cpp:cpp_includes )
-            create_tree(cpp_includes, path_headers);
 
     }
     catch(exception& e) {
