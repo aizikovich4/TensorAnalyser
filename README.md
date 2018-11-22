@@ -1,4 +1,21 @@
 # TensorAnalyser
+build steps:
+1) in directory with source - mkdir build
+2) cd build
+3) cmake ..
+4) make 
+5) ./Tensor_Analyzer ~/projects/TensorAnalyser/test/ -I ~/projects/TensorAnalyser/test/include/  -  as example
+
+example output:
+"/home/baizikovich/projects/TensorAnalyser/test/1.cpp"
+	header1.hpp 
+	header2.hpp 
+	header6.hpp(!)
+"/home/baizikovich/projects/TensorAnalyser/test/2.cpp"
+	header1.hpp(!)
+	header2.hpp(!)
+	header6.hpp 
+
 
 Формулировка задачи
 Нужно написать анализатор файлов исходного кода на С++. Программа должна выводить дерево
