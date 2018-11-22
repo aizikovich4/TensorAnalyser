@@ -9,6 +9,17 @@
 #include "headlist.h"
 #include "includeheader.hpp"
 
+/* TODO
+ * 1. Refactoring for use classes, not C-style function
+ * 2. Need incapsulate collecting and create tree in the class
+ * 3. For tree - need normal recursive output
+ * 4. Move global params to class (no incapsulate there)
+ * 5. Regular expression for search file - may be need do it made more flexible in future
+ * 6. Create big special class, which have been perform all work by collect headers, find dependency, pretty output.
+ * */
+
+
+
 using namespace std;
 using namespace boost::program_options;
 using namespace boost::filesystem;
